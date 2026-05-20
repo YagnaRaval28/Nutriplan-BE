@@ -90,9 +90,22 @@ def refresh_token(body: RefreshRequest, db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.id == token_record.user_id).first()
     access_token = create_access_token({"sub": str(user.id), "role": user.role})
+
+    # Rotate refresh token: mark old one used, issue a new one
     token_record.used_at = datetime.now(timezone.utc)
+    new_refresh_raw = generate_secure_token()
+    db.add(AuthToken(
+        user_id=user.id,
+        token_hash=hash_token(new_refresh_raw),
+        token_type="refresh",
+        expires_at=token_record.expires_at,  # keep same expiry window
+    ))
     db.commit()
-    return {"access_token": access_token, "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60}
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_raw,
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
 
 
 @router.post("/verify-email")

@@ -34,6 +34,7 @@ def get_plans(db: Session = Depends(get_db)):
             "price": float(p.price), "currency": p.currency, "interval": p.interval,
             "features": p.features or [], "ai_recipes_per_month": p.ai_recipes_per_month,
             "max_clients": p.max_clients, "target_role": p.target_role,
+            "is_free": float(p.price) == 0,
         }
         for p in plans
     ]

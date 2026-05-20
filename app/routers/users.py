@@ -1,5 +1,6 @@
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 
@@ -18,6 +19,20 @@ from app.utils.calculations import (
 )
 
 router = APIRouter()
+
+
+@router.get("/search")
+def search_users(
+    q: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    users = db.query(User).filter(
+        User.id != current_user.id,
+        User.is_active == True,
+        (User.name.ilike(f"%{q}%") | User.email.ilike(f"%{q}%")),
+    ).limit(10).all()
+    return [{"id": str(u.id), "name": u.name, "email": u.email, "role": u.role} for u in users]
 
 
 @router.get("/profile", response_model=UserProfileResponse)
@@ -160,3 +175,23 @@ def create_doctor_profile(
     db.add(profile)
     db.commit()
     return {"message": "Doctor profile submitted for verification"}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+@router.put("/change-password")
+def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.utils.security import hash_password, verify_password
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    current_user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"message": "Password changed successfully"}

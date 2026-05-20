@@ -43,6 +43,29 @@ class HealthProfileResponse(BaseModel):
         from_attributes = True
 
 
+class DieticianProfileNested(BaseModel):
+    license_number: Optional[str] = None
+    specialization: Optional[str] = None
+    experience_years: Optional[int] = None
+    bio: Optional[str] = None
+    verification_status: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DoctorProfileNested(BaseModel):
+    license_number: Optional[str] = None
+    specialization: Optional[str] = None
+    hospital_name: Optional[str] = None
+    experience_years: Optional[int] = None
+    bio: Optional[str] = None
+    verification_status: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class UserProfileResponse(BaseModel):
     id: UUID
     name: str
@@ -53,6 +76,8 @@ class UserProfileResponse(BaseModel):
     profile_photo_url: Optional[str]
     created_at: datetime
     health_profile: Optional[HealthProfileResponse]
+    dietician_profile: Optional[DieticianProfileNested] = None
+    doctor_profile: Optional[DoctorProfileNested] = None
 
     class Config:
         from_attributes = True

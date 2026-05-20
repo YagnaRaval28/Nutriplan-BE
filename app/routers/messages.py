@@ -59,8 +59,15 @@ def send_message(body: SendMessageRequest, current_user: User = Depends(get_curr
     db.add(msg)
     db.commit()
     db.refresh(msg)
-    return {"id": str(msg.id), "conversation_id": str(msg.conversation_id),
-            "sender_id": str(msg.sender_id), "content": msg.content, "sent_at": str(msg.sent_at)}
+    return {
+        "id": str(msg.id),
+        "conversation_id": str(msg.conversation_id),
+        "sender_id": str(msg.sender_id),
+        "receiver_id": str(body.receiver_id),
+        "content": msg.content,
+        "sent_at": msg.sent_at.isoformat(),
+        "created_at": msg.sent_at.isoformat(),
+    }
 
 
 @router.get("/conversations")
@@ -71,7 +78,11 @@ def get_conversations(current_user: User = Depends(get_current_user), db: Sessio
 
     result = []
     for conv in convs:
-        other_id = conv.participant_2 if str(conv.participant_1) == str(current_user.id) else conv.participant_1
+        # Compare as strings to avoid UUID vs str type mismatch
+        p1 = str(conv.participant_1)
+        p2 = str(conv.participant_2)
+        me = str(current_user.id)
+        other_id = conv.participant_2 if p1 == me else conv.participant_1
         other = db.query(User).filter(User.id == other_id).first()
         last_msg = db.query(Message).filter(Message.conversation_id == conv.id).order_by(Message.sent_at.desc()).first()
         unread = db.query(Message).filter(
@@ -83,8 +94,8 @@ def get_conversations(current_user: User = Depends(get_current_user), db: Sessio
             "id": str(conv.id),
             "other_user_id": str(other_id),
             "other_user_name": other.name if other else "Unknown",
-            "last_message": last_msg.content if last_msg else None,
-            "last_message_at": str(last_msg.sent_at) if last_msg else None,
+            "last_message": last_msg.content if last_msg else "",
+            "updated_at": last_msg.sent_at.isoformat() if last_msg else conv.created_at.isoformat(),
             "unread_count": unread,
         })
     return result
@@ -105,8 +116,18 @@ def get_messages(conversation_id: str, current_user: User = Depends(get_current_
             m.read_at = datetime.now(timezone.utc)
     db.commit()
 
-    return [{"id": str(m.id), "sender_id": str(m.sender_id), "content": m.content,
-             "sent_at": str(m.sent_at), "read_at": str(m.read_at) if m.read_at else None} for m in msgs]
+    return [
+        {
+            "id": str(m.id),
+            "conversation_id": conversation_id,
+            "sender_id": str(m.sender_id),
+            "content": m.content,
+            "sent_at": m.sent_at.isoformat(),
+            "created_at": m.sent_at.isoformat(),
+            "read_at": m.read_at.isoformat() if m.read_at else None,
+        }
+        for m in msgs
+    ]
 
 
 @router.websocket("/ws/{user_id}")

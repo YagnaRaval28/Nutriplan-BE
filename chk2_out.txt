@@ -1,0 +1,1 @@
+URL: postgresql+psycopg2://postgres:Yagna%40209@localhost:5432/nu
